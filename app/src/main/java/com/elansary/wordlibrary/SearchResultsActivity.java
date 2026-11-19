@@ -9,9 +9,6 @@ import android.widget.*;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
-import org.apache.poi.xwpf.usermodel.XWPFDocument;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.concurrent.*;
 
@@ -41,10 +38,10 @@ public class SearchResultsActivity extends AppCompatActivity {
    String normalized=query.toLowerCase().replaceAll("\\s+"," ").trim();String[] tokens=normalized.split(" ");
    for(LibraryActivity.WordFile file:files){
     if(Thread.currentThread().isInterrupted())return;
-    try(InputStream input=getContentResolver().openInputStream(file.uri);XWPFDocument document=new XWPFDocument(input);XWPFWordExtractor extractor=new XWPFWordExtractor(document)){
-     String[] paragraphs=extractor.getParagraphText();
-     for(int i=0;i<paragraphs.length;i++){
-      String text=paragraphs[i]==null?"":paragraphs[i];String normalizedText=text.toLowerCase().replaceAll("\\s+"," ").trim();boolean match=true;
+    try{
+     ArrayList<String> paragraphs=DocxReader.readParagraphs(this,file.uri);
+     for(int i=0;i<paragraphs.size();i++){
+      String text=paragraphs.get(i);String normalizedText=text.toLowerCase().replaceAll("\\s+"," ").trim();boolean match=true;
       for(String token:tokens)if(!normalizedText.contains(token)){match=false;break;}
       if(match){Result result=new Result(file,i+1,text);runOnUiThread(()->{results.add(result);adapter.notifyItemInserted(results.size()-1);status.setText("نتائج: "+results.size());});}
      }
