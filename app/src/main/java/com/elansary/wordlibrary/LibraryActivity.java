@@ -6,12 +6,10 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.*;
 import android.provider.*;
-import android.text.TextUtils;
 import android.view.*;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.*;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import java.util.ArrayList;
@@ -21,7 +19,17 @@ public class LibraryActivity extends AppCompatActivity {
  EditText searchBox;Button searchButton;TextView status;RecyclerView fileList;FileAdapter fileAdapter;
  ArrayList<WordFile> files=new ArrayList<>();ExecutorService worker=Executors.newSingleThreadExecutor();
 
- static final class WordFile{final Uri uri;final String name;WordFile(Uri uri,String name){this.uri=uri;this.name=name;}}
+ static final class WordFile implements Parcelable{
+  final Uri uri;final String name;
+  WordFile(Uri uri,String name){this.uri=uri;this.name=name;}
+  protected WordFile(Parcel in){uri=in.readParcelable(Uri.class.getClassLoader());name=in.readString();}
+  @Override public void writeToParcel(Parcel dest,int flags){dest.writeParcelable(uri,flags);dest.writeString(name);}
+  @Override public int describeContents(){return 0;}
+  public static final Creator<WordFile> CREATOR=new Creator<WordFile>(){
+   @Override public WordFile createFromParcel(Parcel in){return new WordFile(in);}
+   @Override public WordFile[] newArray(int size){return new WordFile[size];}
+  };
+ }
 
  @Override protected void onCreate(Bundle state){
   super.onCreate(state);LinearLayout root=new LinearLayout(this);root.setOrientation(1);root.setPadding(dp(12),dp(12),dp(12),dp(12));setContentView(root);
