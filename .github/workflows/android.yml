@@ -1,0 +1,27 @@
+name: Build Android APK
+on:
+ push:
+  branches: [main]
+workflow_dispatch: {}
+jobs:
+ build:
+  runs-on: ubuntu-latest
+  steps:
+   - uses: actions/checkout@v4
+   - uses: actions/setup-java@v4
+     with:
+      distribution: temurin
+      java-version: '17'
+   - uses: gradle/actions/setup-gradle@v4
+   - run: ./gradlew assembleDebug
+   - uses: softprops/action-gh-release@v2
+     if: success()
+     with:
+      tag_name: preview-${{ github.run_id }}-1
+      name: 'Elansary Word Library: success'
+      body: |
+       Commit: ${{ github.sha }}
+       Build outcome: success
+       Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+       Not device-tested.
+      files: app/build/outputs/apk/debug/app-debug.apk
