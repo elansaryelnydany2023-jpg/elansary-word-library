@@ -1,5 +1,6 @@
 package com.elansary.wordlibrary;
 import android.content.*;
+import android.content.ClipboardManager;
 import android.os.Bundle;
 import android.text.*;
 import android.text.style.BackgroundColorSpan;
