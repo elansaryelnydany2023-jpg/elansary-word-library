@@ -13,29 +13,67 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-
-      - name: Build APK
-        run: gradle assembleDebug
-
-      - name: Publish release
-        if: success()
+      - name: Build APK and capture diagnostics
+        id: apk
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle assembleDebug --stacktrace --console=plain 2>&1 | tee build.log
+      - name: Prepare report
+        if: always()
+        env:
+          BUILD_OUTCOME: ${{ steps.apk.outcome }}
+        shell: bash
+        run: |
+          {
+            printf 'Commit: %s\nBuild outcome: %s\n' "$GITHUB_SHA" "$BUILD_OUTCOME"
+            printf 'Run: %s/%s/actions/runs/%s\n' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID"
+            printf 'Not device-tested. Diagnostic reports are not APK releases.\n\n'
+            if [ "$BUILD_OUTCOME" != success ]; then
+              printf 'Last Gradle log lines:\n```text\n'
+              if [ -f build.log ]; then tail -c 45000 build.log; else printf 'Gradle did not start; inspect setup steps.\n'; fi
+              printf '\n```\n'
+            fi
+          } > build-report.md
+          cat build-report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Preserve build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-diagnostics-${{ github.run_id }}
+          path: |
+            build.log
+            build-report.md
+          retention-days: 7
+      - name: Publish successful APK
+        if: steps.apk.outcome == 'success'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: preview-${{ github.run_id }}-1
           name: 'Elansary Word Library: success'
-          body: |
-            Commit: ${{ github.sha }}
-            Build outcome: success
-            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-            Not device-tested.
+          body_path: build-report.md
           files: app/build/outputs/apk/debug/app-debug.apk
+          fail_on_unmatched_files: true
+      - name: Publish failure diagnostics without APK
+        if: failure() || steps.apk.outcome == 'failure'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: diagnostics-${{ github.run_id }}
+          name: 'BUILD FAILED - diagnostics only - no APK'
+          prerelease: true
+          body_path: build-report.md
+          files: |
+            build.log
+            build-report.md
+      - name: Mark failed build correctly
+        if: steps.apk.outcome != 'success'
+        run: exit 1
