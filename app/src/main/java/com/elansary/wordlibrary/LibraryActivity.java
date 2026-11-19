@@ -6,9 +6,7 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.*;
 import android.provider.*;
-import android.text.TextUtils;
 import android.view.*;
-import android.view.inputmethod.InputMethodManager;
 import android.widget.*;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -20,7 +18,17 @@ public class LibraryActivity extends AppCompatActivity {
  EditText searchBox;Button searchButton;TextView status;RecyclerView fileList;FileAdapter fileAdapter;
  ArrayList<WordFile> files=new ArrayList<>();ExecutorService worker=Executors.newSingleThreadExecutor();
 
- static final class WordFile{final Uri uri;final String name;WordFile(Uri uri,String name){this.uri=uri;this.name=name;}}
+ public static final class WordFile implements Parcelable {
+  public final Uri uri;public final String name;
+  public WordFile(Uri uri,String name){this.uri=uri;this.name=name;}
+  protected WordFile(Parcel in){uri=in.readParcelable(Uri.class.getClassLoader());name=in.readString();}
+  @Override public void writeToParcel(Parcel dest,int flags){dest.writeParcelable(uri,flags);dest.writeString(name);}
+  @Override public int describeContents(){return 0;}
+  public static final Creator<WordFile> CREATOR=new Creator<WordFile>(){
+   @Override public WordFile createFromParcel(Parcel in){return new WordFile(in);}
+   @Override public WordFile[] newArray(int size){return new WordFile[size];}
+  };
+ }
 
  @Override protected void onCreate(Bundle state){
   super.onCreate(state);LinearLayout root=new LinearLayout(this);root.setOrientation(1);root.setPadding(dp(12),dp(12),dp(12),dp(12));setContentView(root);
@@ -52,7 +60,7 @@ public class LibraryActivity extends AppCompatActivity {
      String id=cursor.getString(cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID));String name=cursor.getString(cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME));String mime=cursor.getString(cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE));
      Uri child=DocumentsContract.buildDocumentUriUsingTree(folder,id);
      if(DocumentsContract.Document.MIME_TYPE_DIR.equals(mime))collect(child,out);
-     else if(name!=null&&(name.toLowerCase().endsWith(".docx")||name.toLowerCase().endsWith(".doc")))out.add(new WordFile(child,name));
+     else if(name!=null&&name.toLowerCase().endsWith(".docx"))out.add(new WordFile(child,name));
     }
    }
   }catch(Exception ignored){}
@@ -69,13 +77,12 @@ public class LibraryActivity extends AppCompatActivity {
  void startSearch(){
   String query=searchBox.getText().toString().trim();if(query.isEmpty()){status.setText("اكتب كلمة أو أكثر للبحث");return;}
   if(files.isEmpty()){status.setText("لا توجد ملفات Word؛ اختر مجلدًا أو افحص كل ملفات Word");return;}
-  InputMethodManager keyboard=(InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);if(keyboard!=null)keyboard.hideSoftInputFromWindow(searchBox.getWindowToken(),0);
   Intent intent=new Intent(this,SearchResultsActivity.class);intent.putExtra("query",query);intent.putParcelableArrayListExtra("files",new ArrayList<>(files));startActivity(intent);
  }
  final class FileAdapter extends RecyclerView.Adapter<FileHolder>{
   @Override public FileHolder onCreateViewHolder(ViewGroup parent,int type){
    LinearLayout card=new LinearLayout(LibraryActivity.this);card.setOrientation(1);card.setPadding(dp(12),dp(10),dp(12),dp(10));
-   android.graphics.drawable.GradientDrawable bg=new android.graphics.drawable.GradientDrawable();bg.setColor(0xFFFFFFFF);bg.setCornerRadius(dp(10));bg.setStroke(dp(1),0xFFBDD1DF);card.setBackground(bg);card.setPadding(dp(12),dp(10),dp(12),dp(10));
+   android.graphics.drawable.GradientDrawable bg=new android.graphics.drawable.GradientDrawable();bg.setColor(0xFFFFFFFF);bg.setCornerRadius(dp(10));bg.setStroke(dp(1),0xFFBDD1DF);card.setBackground(bg);
    RecyclerView.LayoutParams lp=new RecyclerView.LayoutParams(-1,-2);lp.bottomMargin=dp(8);card.setLayoutParams(lp);
    TextView name=new TextView(LibraryActivity.this);name.setTextSize(16);card.addView(name);return new FileHolder(card,name);
   }
